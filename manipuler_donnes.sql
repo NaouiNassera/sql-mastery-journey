@@ -42,7 +42,7 @@ Objectif : ajouter un nouvel employe :
 son departement.
 */
 
--- Règle importante : le nombre de colonnes declarees doit correspondre au 
+-- Regle importante : le nombre de colonnes declarees doit correspondre au 
 -- nombre de valeurs fournies.
 INSERT INTO employees(id, name)
 VALUES (6, 'Frank');
@@ -456,16 +456,277 @@ RETURNING name, department, salary;
 
 
 
+----------------------------------------------------------------------------------------------------------------
+
+--- Les transactions SQL
+
+--- Une transaction permet de regrouper plusieurs operations SQL pour qu'elles soient validees ou annulees ensemble.
+
+/*
+Nous allons travailler avec PostgreSQL.
+Les trois commandes essentielles :
+Commande	Role
+BEGIN	    Demarrer une transaction
+COMMIT	    Valider definitivement les modifications
+ROLLBACK	Annuler les modifications non validees
+*/
+
+/*
+Exercice 1 : Premiere transaction
+Voici la table employees :
+id	name	salary
+1	Alice	50000
+2	Bob	    45000
+
+Objectif :
+1. Demarrer une transaction.
+2. Modifier le salaire de Bob a 52000.
+3. Annuler cette modification.
+4. Conserver son salaire initial de 45000.
+*/
+
+BEGIN;
+
+UPDATE employees
+SET salary = 52000
+WHERE id = 2;
+
+ROLLBACK;
+
+/* 
+ROLLBACK annule les modifications effectuees dans la transaction et restaure les valeurs precedentes, 
+tant qu'elles n'ont pas ete validees par COMMIT
+
+ROLLBACK annule toutes les modifications non validees de la transaction, pas uniquement le dernier UPDATE
+*/
+
+/*
+Transaction avec COMMIT
+Voici une nouvelle table employees :
+id	name	salary
+1	Alice	50000
+2	Bob	    45000
+3	Charlie	60000
+
+Objectif :
+1. Demarrer une transaction.
+2. Augmenter le salaire d'Alice de 5000.
+3. Augmenter le salaire de Bob de 3000.
+4. Valider definitivement les deux modifications.
+*/
+
+BEGIN;
+
+UPDATE employees 
+SET salary = salary + 5000
+WHERE id = 1;
+
+UPDATE employees
+SET salary = salary + 3000
+WHERE id = 2;
+
+COMMIT;
+
+/*
+apres COMMIT, les modifications sont validees. Un ROLLBACK execute ensuite dans une nouvelle transaction ne 
+pourra pas annuler ce COMMIT.
+*/
+
+/*
+Transaction avec plusieurs operations et ROLLBACK
+Voici une nouvelle table employees :
+id	name	salary
+1	Alice	50000
+2	Bob	    45000
+3	Charlie	60000
+4	Diana	55000
+
+Objectif :
+1. Demarrer une transaction.
+2. Augmenter le salaire d'Alice de 10000.
+3. Supprimer Bob de la table.
+4. Annuler les deux operations pour retrouver exactement la table initiale.
+*/
+
+BEGIN;
+
+UPDATE employees
+SET salary = salary + 10000
+WHERE id = 1;
+
+DELETE 
+FROM employees
+WHERE id = 2;
+
+ROLLBACK;
+
+/*
+ROLLBACK annule aussi les suppressions effectuees dans la transaction. Bob revient donc dans la table.
+*/
+
+/*
+La regle a retenir
+Dans une transaction PostgreSQL, ROLLBACK annule toutes les modifications non validees, notamment :
+- INSERT : les lignes ajoutees sont retirees.
+- UPDATE : les anciennes valeurs sont restaurees.
+- DELETE : les lignes supprimees sont restaurees.
+COMMIT valide les changements, tandis que ROLLBACK les annule.
+
+Attention : si tu as deja execute COMMIT, un ROLLBACK ulterieur ne peut pas annuler cette transaction validee.
+*/
 
 
+/*
+SAVEPOINT et ROLLBACK TO SAVEPOINT
+Nous allons decouvrir une nouvelle notion : les points de sauvegarde.
 
+Un SAVEPOINT permet de definir un point intermediaire dans une transaction.
 
+Contrairement a ROLLBACK, qui annule toute la transaction, ROLLBACK TO SAVEPOINT permet de revenir a un point 
+precis sans annuler les modifications effectuees avant ce point.
+*/
 
+/*
+Voici une nouvelle table employees :
+id	name	salary
+1	Alice	50000
+2	Bob	    45000
+3	Charlie	60000
 
+Objectif :
+1. Demarrer une transaction.
+2. Augmenter le salaire d'Alice de 5000.
+3. Creer un point de sauvegarde nomme sp_salary.
+4. Augmenter le salaire de Bob de 10000.
+5. Annuler uniquement l'augmentation de Bob.
+6. Valider definitivement l'augmentation d'Alice.
+*/
 
+BEGIN;
 
+UPDATE employees
+SET salary = salary + 5000 
+WHERE id = 1;
 
+SAVEPOINT sp_salary;
 
+UPDATE employees
+SET salary = salary + 10000
+WHERE id = 2;
+
+ROLLBACK TO SAVEPOINT sp_salary;
+
+COMMIT;
+
+/*
+Plusieurs SAVEPOINT
+Nous allons maintenant augmenter legerement la difficulte.
+
+Voici une nouvelle table employees :
+id	name	salary
+1	Alice	50000
+2	Bob	    45000
+3	Charlie	60000
+
+Objectif :
+1. Demarrer une transaction.
+2. Augmenter le salaire d'Alice de 5000.
+3. Creer un point de sauvegarde nomme sp1.
+4. Augmenter le salaire de Bob de 3000.
+5. Creer un deuxieme point de sauvegarde nomme sp2.
+6. Augmenter le salaire de Charlie de 10000.
+7. Revenir au point de sauvegarde sp1.
+8. Valider la transaction.
+
+Question : 
+ecris toutes les instructions SQL necessaires, puis indique les salaires 
+finaux d'Alice, Bob et Charlie apres COMMIT.
+*/
+
+BEGIN;
+
+UPDATE employees 
+SET salary = salary + 5000
+WHERE id = 1;
+
+SAVEPOINT sp1;
+
+UPDATE employees
+SET salary = salary + 3000
+WHERE id = 2;
+
+SAVEPOINT sp2;
+
+UPDATE employees
+SET salary = salary + 10000
+WHERE id = 3;
+
+ROLLBACK TO SAVEPOINT sp1;
+
+COMMIT;
+
+/*
+PostgreSQL :
+- Conserve les modifications effectuees avant sp1.
+- Annule les modifications de Bob et Charlie.
+- Supprime egalement le point de sauvegarde sp2, puisqu'il a ete cree apres sp1.
+- Maintient la transaction ouverte jusqu'au COMMIT.
+*/
+
+/*
+Synthese finale des transactions
+Voici une nouvelle table employees :
+id	name	salary
+1	Alice	50000
+2	Bob	    45000
+3	Charlie	60000
+4	Diana	55000
+
+Objectif :
+1. Demarrer une transaction.
+2. Augmenter le salaire d'Alice de 5000.
+3. Creer un point de sauvegarde sp1.
+4. Supprimer Bob.
+5. Augmenter le salaire de Charlie de 10000.
+6. Creer un deuxieme point de sauvegarde sp2.
+7. Inserer un nouvel employe : id = 5, name = 'Eve', salary = 48000.
+8. Revenir au point de sauvegarde sp1.
+9. Augmenter le salaire de Diana de 2000.
+10. Valider la transaction.
+*/
+
+BEGIN;
+
+UPDATE employees
+SET salary = salary + 5000
+WHERE id = 1;
+
+SAVEPOINT sp1;
+
+DELETE 
+FROM employees
+WHERE id = 2;
+
+UPDATE employees
+SET salary = salary + 10000
+WHERE id = 3;
+
+SAVEPOINT sp2;
+
+INSERT INTO employees(id, name, salary)
+VALUES(5, 'Eve', 48000);
+
+ROLLBACK TO SAVEPOINT sp1;
+
+UPDATE employees
+SET salary = salary + 2000
+WHERE id = 4;
+
+COMMIT;
+
+/*
+Tu maitrises maintenant les mecanismes fondamentaux de BEGIN, COMMIT, ROLLBACK, SAVEPOINT et ROLLBACK TO SAVEPOINT.
+*/
 
 
 
