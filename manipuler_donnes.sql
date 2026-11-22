@@ -728,9 +728,202 @@ COMMIT;
 Tu maitrises maintenant les mecanismes fondamentaux de BEGIN, COMMIT, ROLLBACK, SAVEPOINT et ROLLBACK TO SAVEPOINT.
 */
 
+/*
+Les contraintes SQL :
+
+Les contraintes permettent a la base de donnees de proteger l'integrite des donnees.
+Nous allons etudier progressivement :
+1. NOT NULL
+2. UNIQUE
+3. PRIMARY KEY
+4. FOREIGN KEY
+5. CHECK
+6. DEFAULT
+*/
+
+-- NOT NULL empeche une colonne de contenir la valeur NULL.
+
+/*
+Premiere contrainte
+Objectif : creer une table students avec les colonnes suivantes :
+Colonne	Type	        Contrainte
+id	    INTEGER	        Aucune pour cet exercice
+name	VARCHAR(100)	NOT NULL
+email	VARCHAR(150)	NOT NULL
+age	    INTEGER	        Aucune
+
+Objectif : 
+ecrire une seule instruction CREATE TABLE qui respecte exactement cette structure.
+*/
+
+CREATE TABLE students(
+    id INTEGER,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL,
+    age INTEGER
+);
 
 
+-- UNIQUE empeche d'enregistrer plusieurs fois la meme valeur dans une colonne.
 
+/*
+en PostgreSQL, une contrainte UNIQUE autorise normalement plusieurs valeurs NULL, 
+car elles ne sont pas considerees comme egales pour cette contrainte.
+
+*/
+
+-- Pour rendre une colonne obligatoire et unique, on peut combiner NOT NULL et UNIQUE
+
+/*
+NOT NULL et UNIQUE
+Cree une table users avec les caracteristiques suivantes :
+Colonne	  Type	        Contraintes
+id	      INTEGER	    Aucune
+username  VARCHAR(50)	NOT NULL, UNIQUE
+email	  VARCHAR(150)	NOT NULL, UNIQUE
+age	      INTEGER	    Aucune
+
+Objectif : 
+empecher deux utilisateurs d'avoir le meme nom d'utilisateur ou la meme adresse e-mail, 
+tout en rendant ces deux informations obligatoires.
+*/
+
+CREATE TABLE users (
+    id INTEGER,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    age INTEGER
+);
+
+/*
+L'ordre UNIQUE NOT NULL est valide en PostgreSQL, tout comme NOT NULL UNIQUE.
+*/
+
+/*
+
+Une cle primaire permet d'identifier de maniere unique chaque ligne d'une table.
+
+Elle combine automatiquement deux proprietes :
+- UNIQUE : deux lignes ne peuvent pas avoir la meme cle primaire.
+- NOT NULL : la cle primaire ne peut pas etre NULL.
+
+*/
+
+
+/*
+
+Cree une table products avec la structure suivante :
+
+Colonne	 Type	            Contrainte
+id	     INTEGER	        PRIMARY KEY
+name	 VARCHAR(100)	    NOT NULL
+price	 INTEGER	        Aucune
+sku	     VARCHAR(50)	    UNIQUE, NOT NULL
+
+Objectif : ecrire une seule instruction CREATE TABLE qui respecte exactement ces regles.
+
+*/
+
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price INTEGER,
+    sku VARCHAR(50) UNIQUE NOT NULL
+);
+
+/*
+FOREIGN KEY
+Une cle etrangere permet de creer une relation entre deux tables tout en garantissant l'integrite referentielle.
+
+une cle etrangere n'implique pas automatiquement NOT NULL. Il faut ajouter cette contrainte si la relation est obligatoire.
+*/
+
+/*
+Premiere cle etrangere :
+
+On suppose que la table departments existe deja :
+
+CREATE TABLE departments (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+
+Objectif : creer une table employees avec les caracteristiques suivantes :
+----------------------------------------------------------------------------------
+| Colonne	    | Type	           | Contraintes   
+|---------------|------------------|----------------------------------------------
+| id	        | INTEGER	       | PRIMARY KEY
+| name	        | VARCHAR(100)	   | NOT NULL
+| salary	    | INTEGER	       | Aucune
+| department_id	| INTEGER	       | NOT NULL, cle etrangere vers departments(id)
+|               |                  |
+----------------------------------------------------------------------------------
+
+*/
+
+CREATE TABLE employees (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    salary INTEGER,
+    department_id INTEGER NOT NULL REFERENCES departments(id)
+);
+
+/*
+Point important : avec department_id INTEGER NOT NULL REFERENCES departments(id), chaque 
+employe doit appartenir a un departement existant.
+*/
+
+/*
+FOREIGN KEY et ON DELETE
+Que se passe-t-il lorsqu'on supprime un departement auquel des employes appartiennent ?
+
+PostgreSQL permet de definir le comportement avec ON DELETE.
+Option	             Comportement
+ON DELETE RESTRICT	 Empeche la suppression du departement s'il est reference
+ON DELETE CASCADE	 Supprime automatiquement les employes lies au departement
+ON DELETE SET NULL	 Remplace leur department_id par NULL
+
+Attention : ON DELETE SET NULL necessite que la colonne puisse accepter NULL.
+*/
+
+/*
+La table departments existe deja :
+CREATE TABLE departments (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+
+
+Objectif : creer une table employees avec cette structure :
+Colonne	        Type	        Contraintes
+id	            INTEGER	        PRIMARY KEY
+name	        VARCHAR(100)	NOT NULL
+salary	        INTEGER	        Aucune
+department_id	INTEGER	        NOT NULL, cle etrangere vers departments(id) avec ON DELETE CASCADE
+
+Question supplementaire : si le departement 10 possede trois employes et qu'on supprime ce departement, 
+que deviennent ces trois employes ?
+
+*/
+
+CREATE TABLE employees (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    salary INTEGER,
+    department_id INTEGER NOT NULL REFERENCES departments(id) 
+        ON DELETE CASCADE
+);
+
+/*
+Attention : 
+ON DELETE CASCADE peut provoquer la suppression de nombreuses lignes liees. Il faut l'utiliser avec precaution.
+*/
+
+/*
+ON DELETE SET NULL
+Contrairement a CASCADE, qui supprime les lignes liees, ON DELETE SET NULL permet de conserver les employes, 
+mais de retirer leur association avec le departement supprime.
+*/
 
 
 
