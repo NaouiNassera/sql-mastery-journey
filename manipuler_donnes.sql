@@ -729,6 +729,9 @@ Tu maitrises maintenant les mecanismes fondamentaux de BEGIN, COMMIT, ROLLBACK, 
 */
 
 /*
+
+-----------------------------------------------------------------------------------------------------------------------
+
 Les contraintes SQL :
 
 Les contraintes permettent a la base de donnees de proteger l'integrite des donnees.
@@ -925,24 +928,268 @@ Contrairement a CASCADE, qui supprime les lignes liees, ON DELETE SET NULL perme
 mais de retirer leur association avec le departement supprime.
 */
 
+/*
+Regle importante : si department_id possede la contrainte NOT NULL, l'action ON DELETE SET NULL echouera 
+lorsqu'elle devra attribuer NULL a cette colonne.
+*/
+
+/*
+La table departments existe deja :
+CREATE TABLE departments (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
 
 
+Objectif : creer une table employees avec cette structure :
+Colonne	        Type	        Contraintes
+id	            INTEGER	        PRIMARY KEY
+name	        VARCHAR(100)	NOT NULL
+salary	        INTEGER	        Aucune
+department_id	INTEGER	        Cle etrangere vers departments(id) avec ON DELETE SET NULL
+
+*/
+
+CREATE TABLE employees (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    salary INTEGER,
+    department_id INTEGER REFERENCES departments(id)
+        ON DELETE SET NULL
+);
+
+/*
+La contrainte CHECK :
+La contrainte CHECK permet d'imposer une condition sur les valeurs enregistrees dans une colonne
+Point important : 
+en PostgreSQL, une contrainte CHECK accepte une condition evaluee a TRUE ou a NULL (inconnue). 
+Pour interdire NULL, il faut ajouter NOT NULL.
+
+*/
+
+/*
+Premiere contrainte CHECK
+Objectif : 
+creer une table products avec les caracteristiques suivantes :
+Colonne	Type	      Contraintes
+id	    INTEGER	      PRIMARY KEY
+name	VARCHAR(100)  NOT NULL
+price	INTEGER	      NOT NULL, strictement superieur a 0
+stock	INTEGER	      Superieur ou egal a 0
+*/
+
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price INTEGER NOT NULL CHECK (price > 0),
+    stock INTEGER CHECK (stock >= 0)
+);
+
+/*
+La contrainte DEFAULT
+La contrainte DEFAULT permet de definir une valeur utilisee automatiquement lorsqu'aucune valeur 
+n'est fournie pour une colonne.
+
+*/
+
+/*
+Attention : 
+DEFAULT ne remplace pas automatiquement un NULL explicitement fourni.
+*/
+
+/*
+Combiner DEFAULT et CHECK
+Cree une table products respectant les regles suivantes :
+Colonne	Type	        Contraintes
+id	    INTEGER	        PRIMARY KEY
+name	VARCHAR(100)	NOT NULL
+price	INTEGER	        NOT NULL, strictement superieur a 0
+stock	INTEGER	        Valeur par defaut 0, superieur ou egal a 0
+status	VARCHAR(20)	    Valeur par defaut 'active', NOT NULL
+*/
+
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price INTEGER NOT NULL CHECK (price > 0),
+    stock INTEGER DEFAULT 0 CHECK (stock >= 0),
+    status VARCHAR(20) DEFAULT 'active' NOT NULL
+);
+
+/*
+ALTER TABLE : modifier une table existante
+Jusqu'ici, tu as defini les contraintes lors de la creation des tables avec CREATE TABLE.
+
+Mais dans un projet reel, il est frequent de devoir modifier la structure d'une table deja existante.
+
+C'est le role de ALTER TABLE.
+
+Voici trois operations courantes :
+
+1. Ajouter une contrainte NOT NULL
+ALTER TABLE products
+ALTER COLUMN name SET NOT NULL;
 
 
+2. Ajouter une contrainte CHECK
+ALTER TABLE products
+ADD CONSTRAINT positive_price CHECK (price > 0);
+-- Ici, positive_price est le nom donne a la contrainte.
+
+3. Ajouter une valeur par defaut
+ALTER TABLE products
+ALTER COLUMN stock SET DEFAULT 0;
 
 
+Ces modifications concernent une table existante, sans avoir a la recreer. 
+Attention : certaines contraintes peuvent etre refusees si les donnees deja presentes ne les respectent pas.
+
+*/
+
+/*
+Modifier une table existante
+
+On suppose que la table products existe deja :
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100),
+    price INTEGER,
+    stock INTEGER
+);
 
 
+Tu dois effectuer les modifications suivantes :
+1. Rendre name obligatoire (NOT NULL).
+2. Ajouter une contrainte nommee positive_price qui impose price > 0.
+3. Definir 0 comme valeur par defaut de stock.
+*/
+
+ALTER TABLE products
+ALTER COLUMN name SET NOT NULL;
 
 
+ALTER TABLE products 
+ADD CONSTRAINT positive_price CHECK (price > 0);
 
 
+ALTER TABLE products
+ALTER COLUMN stock SET DEFAULT 0;
+
+/*
+Deux nuances importantes : 
+SET NOT NULL echouera si name contient deja des valeurs NULL, 
+et SET DEFAULT 0 ne modifie pas les lignes existantes.
+*/
+
+-------   Supprimer ou modifier des contraintes
+
+/*
+Avec ALTER TABLE, tu peux aussi retirer des contraintes devenues inutiles.
+
+Supprimer une contrainte CHECK
+ALTER TABLE products
+DROP CONSTRAINT positive_price;
+
+Retirer NOT NULL
+ALTER TABLE products
+ALTER COLUMN name DROP NOT NULL;
+
+Retirer une valeur par defaut
+ALTER TABLE products
+ALTER COLUMN stock DROP DEFAULT;
+
+Attention : 
+une contrainte NOT NULL ne se retire pas de la meme maniere qu'une contrainte CHECK nommee.
+*/
+
+/*
+Retirer des contraintes
+On suppose que la table products existe deja :
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price INTEGER CONSTRAINT positive_price CHECK (price > 0),
+    stock INTEGER DEFAULT 0
+);
 
 
+Objectif : modifier cette table pour :
+
+1. Supprimer la contrainte positive_price.
+2. Autoriser les valeurs NULL dans name.
+3. Supprimer la valeur par defaut de stock.
+*/
 
 
+ALTER TABLE products 
+DROP CONSTRAINT positive_price;
+
+ALTER TABLE products 
+ALTER COLUMN name DROP NOT NULL;
+
+ALTER TABLE products
+ALTER COLUMN stock DROP DEFAULT;
+
+/*
+Nous allons maintenant verifier ta capacite a combiner plusieurs contraintes dans une situation realiste.
+
+La table categories existe deja :
+CREATE TABLE categories (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE
+);
 
 
+Tu dois creer une table products avec les caracteristiques suivantes :
+Colonne	     Type	     Contraintes
+id	         INTEGER	     PRIMARY KEY
+name	     VARCHAR(100)    NOT NULL
+sku	         VARCHAR(50)	 UNIQUE, NOT NULL
+price	     INTEGER	     NOT NULL, strictement superieur a 0
+stock	     INTEGER	     DEFAULT 0, superieur ou egal a 0
+status	     VARCHAR(20)	 DEFAULT 'active', NOT NULL
+category_id	 INTEGER	     Cle etrangere vers categories(id), avec ON DELETE SET NULL
+
+*/
+
+
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    sku VARCHAR(50) UNIQUE NOT NULL,
+    price INTEGER NOT NULL CHECK (price > 0),
+    stock INTEGER DEFAULT 0 CHECK (stock >= 0),
+    status VARCHAR(20) DEFAULT 'active' NOT NULL,
+    category_id INTEGER REFERENCES categories(id)
+        ON DELETE SET NULL
+);
+
+/*
+Questions supplementaires :
+
+Apres la creation de la table, on execute :
+INSERT INTO products (id, name, sku, price, category_id)
+VALUES (1, 'Laptop', 'LAP-001', 1200, 10);
+
+
+On suppose que la categorie 10 existe.
+
+Question 1 : quelles valeurs sont attribuees a stock et status ?
+
+Question 2 : que devient ce produit si la categorie 10 est supprimee ?
+
+Question 3 : que se passe-t-il si on tente d'inserer un deuxieme produit avec le meme sku ?
+
+Reponse 1 : stock 0 status 'active'
+Reponse 2 : il devient NULL grace a ON DELETE SET NULL
+Reponse 3 : echec grace a la containte UNIQUE 
+
+*/
+
+/*
+Tu sais maintenant utiliser NOT NULL, UNIQUE, PRIMARY KEY, FOREIGN KEY, ON DELETE CASCADE, 
+ON DELETE SET NULL, CHECK, DEFAULT et ALTER TABLE.
+*/
 
 
 
